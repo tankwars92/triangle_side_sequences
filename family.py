@@ -4,6 +4,7 @@
 from fractions import Fraction
 from math import isqrt, gcd
 import random
+# ---------- exact weights: number of triangles (a<=b<=c, a+b+c=n, a+b>c) with the given side equal to k
 def weight(side,n):
     H=(n-1)//2
     if side=='min': return lambda k:(n-k)//2-max(k,n-k-H)+1
@@ -18,7 +19,7 @@ def pieces(side,n):
     if side=='mid':
         lo=ce(n-H,2); br=ce(n,3); return [(lo,min(br-1,H)),(max(br,lo),H)]
     if side=='max': return [(ce(n,3),H)]
-
+# ---------- reference methods
 def is_sqfree(k):
     d=2
     while d*d<=k:
@@ -28,6 +29,7 @@ def is_sqfree(k):
 def prop_sqfree(n): return lambda k:is_sqfree(k)
 def prop_coprime(n): return lambda k:gcd(k,n)==1
 def a_double(n,side,prop):
+    """OEIS-style O(n^2): enumerate all triangles (a<=b<=c)."""
     f=prop(n); t=0
     for a in range(1,n//3+1):
         for b in range(a,(n-a)//2+1):
@@ -35,11 +37,13 @@ def a_double(n,side,prop):
             if a+b>c: t+=f({'min':a,'mid':b,'max':c}[side])
     return t
 def a_linear(n,side,prop):
+    """O(n): sum_k f(k) w_n(k)."""
     f=prop(n); w=weight(side,n); t=0
     for L,R in pieces(side,n):
         for k in range(L,R+1):
             if f(k): t+=w(k)
     return t
+# ---------- prefix oracles: pref(x,p) = (sum_{k<=x,k%2==p} f(k), sum k f(k)), p in {0,1}
 class Sqfree:
     def __init__(self,n):
         self.lim=isqrt(n//2)+2; N=self.lim
@@ -50,7 +54,7 @@ class Sqfree:
                     if j>i: isp[j]=False
                     mu[j]=-mu[j]
                 for j in range(i*i,N+1,i*i): mu[j]=0
-        self.ds=[(d,mu[d]) for d in range(1,N+1,2) if mu[d]]
+        self.ds=[(d,mu[d]) for d in range(1,N+1,2) if mu[d]]      # odd squarefree d
     def odd(self,x):
         Q=S=0
         for d,m in self.ds:
@@ -64,18 +68,18 @@ class Sqfree:
         Q,S=self.odd(x//2); return Q,2*S
 def factor(n):
     ps=[]; 
-    for p in (2,3,5,7,11,13,17,19,23,29,31,37):
+    for p in (2,3,5,7,11,13,17,19,23,29,31,37,41):
         if n%p==0:
             ps.append(p)
             while n%p==0: n//=p
     if n==1: return ps
     def mr(m):
         if m<2: return False
-        for p in (2,3,5,7,11,13,17,19,23,29,31,37):
+        for p in (2,3,5,7,11,13,17,19,23,29,31,37,41):
             if m%p==0: return m==p
         d=m-1; s=0
         while d%2==0: d//=2; s+=1
-        for a in (2,3,5,7,11,13,17,19,23,29,31,37):
+        for a in (2,3,5,7,11,13,17,19,23,29,31,37,41):
             x=pow(a,d,m)
             if x in (1,m-1): continue
             for _ in range(s-1):
@@ -122,7 +126,7 @@ def a_fast(n,side,oracle):
             if k1>R: continue
             Q1,S1=oracle.pref(R,p); Q0,S0=oracle.pref(k1-2,p)
             q=Q1-Q0; s=S1-S0
-            if k1+2>R: tot+=w(k1)*q
+            if k1+2>R: tot+=w(k1)*q                      # single element class
             else:
                 sl=Fraction(w(k1+2)-w(k1),2); ic=w(k1)-sl*k1
                 tot+=ic*q+sl*s
